@@ -182,3 +182,22 @@ A: 当前版本不支持批量上传，需要逐个处理。
 ## 📞 支持
 
 如有问题，请提交 GitHub Issue。
+
+## 📂 项目文件说明
+
+### Git跟踪的文件（源代码和配置）
+- `app/` - 应用程序源代码
+- `Dockerfile` - Docker镜像配置
+- `docker-compose.yml` / `docker-compose.example.yml` - 部署配置
+- `requirements.txt` - Python依赖
+- `README.md`, `QUICKSTART.md`, `PROJECT_SUMMARY.md` - 文档
+- `.gitignore`, `.dockerignore` - 配置文件
+
+### 未跟踪的目录（用户数据）
+这些目录存在于文件系统中但不会被git跟踪:
+- `bangumi/` - 你的剧集目录（通过Docker挂载）
+- `subs/` - 测试用字幕文件
+- `uploads/` - 临时上传文件
+- `venv/` - Python虚拟环境
+
+**注意**: 首次使用时，这些目录需要手动创建或通过应用自动创建。
