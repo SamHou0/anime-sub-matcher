@@ -64,8 +64,8 @@ def upload_subtitle():
         }), 400
     
     # 检查文件扩展名
-    filename = secure_filename(file.filename)
-    file_ext = Path(filename).suffix.lower()
+    original_filename = file.filename
+    file_ext = Path(original_filename).suffix.lower()
     
     if file_ext not in matcher.SUBTITLE_EXTENSIONS:
         return jsonify({
@@ -74,24 +74,27 @@ def upload_subtitle():
         }), 400
     
     try:
-        # 保存文件
-        filepath = UPLOAD_FOLDER / filename
-        file.save(str(filepath))
-        
-        # 解析文件名
-        parsed = matcher.parse_subtitle_filename(filename)
+        # 先解析原始文件名获取集数
+        parsed = matcher.parse_subtitle_filename(original_filename)
         
         if not parsed or not parsed['episode']:
             return jsonify({
                 'success': False,
                 'error': '无法从文件名中识别集数。请确保文件名包含集数信息（如 [01], E01, EP01 等）',
-                'filename': filename
+                'filename': original_filename
             }), 400
+        
+        # 生成安全的文件名用于保存 (使用原始文件名而不是secure_filename)
+        # 使用时间戳避免文件名冲突
+        import time
+        safe_filename = f"{int(time.time())}_{original_filename}"
+        filepath = UPLOAD_FOLDER / safe_filename
+        file.save(str(filepath))
         
         return jsonify({
             'success': True,
             'data': {
-                'filename': filename,
+                'filename': original_filename,
                 'filepath': str(filepath),
                 'episode': parsed['episode'],
                 'anime_title': parsed['anime_title'],
