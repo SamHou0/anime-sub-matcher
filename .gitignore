@@ -17,9 +17,12 @@ instance/
 *.db
 
 # 用户数据目录 - 不应提交
-bangumi/
-subs/
-uploads/
+bangumi/*
+!bangumi/README.md
+subs/*
+!subs/README.md
+uploads/*
+!uploads/README.md
 
 # IDE
 .vscode/
