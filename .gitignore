@@ -16,9 +16,10 @@ instance/
 .env
 *.db
 
-# Uploads
-uploads/*
-!uploads/.gitkeep
+# 用户数据目录 - 不应提交
+bangumi/
+subs/
+uploads/
 
 # IDE
 .vscode/
@@ -32,3 +33,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Docker
+.dockerignore
