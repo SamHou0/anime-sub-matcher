@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动画字幕自动匹配工具</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+        .main-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .card {
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        .upload-zone {
+            border: 3px dashed #dee2e6;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s;
+            background: #f8f9fa;
+            cursor: pointer;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #667eea;
+            background: #e7f1ff;
+        }
+        .upload-zone.dragover {
+            transform: scale(1.02);
+        }
+        .upload-icon {
+            font-size: 64px;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        .info-badge {
+            font-size: 14px;
+            padding: 8px 15px;
+            margin: 5px;
+        }
+        .result-message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        .header-title {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 12px 30px;
+            font-weight: 600;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        #fileInfo {
+            display: none;
+        }
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <h1 class="header-title">
+            <i class="bi bi-file-earmark-text"></i>
+            动画字幕自动匹配工具
+        </h1>
+
+        <!-- 上传区域 -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-cloud-upload"></i> 步骤 1: 上传字幕文件</h5>
+                <div id="uploadZone" class="upload-zone">
+                    <i class="bi bi-cloud-arrow-up upload-icon"></i>
+                    <h4>拖拽字幕文件到这里</h4>
+                    <p class="text-muted">或点击选择文件</p>
+                    <p class="text-muted small">支持格式: .ass, .srt, .ssa, .vtt, .sub (最大 10MB)</p>
+                    <input type="file" id="fileInput" accept=".ass,.srt,.ssa,.vtt,.sub" style="display: none;">
+                </div>
+
+                <!-- 文件信息 -->
+                <div id="fileInfo" class="mt-3">
+                    <div class="alert alert-info">
+                        <strong><i class="bi bi-file-earmark-check"></i> 文件已上传:</strong>
+                        <div class="mt-2">
+                            <span class="badge bg-primary info-badge">文件名: <span id="fileName"></span></span>
+                            <span class="badge bg-success info-badge">识别集数: 第 <span id="episode"></span> 集</span>
+                            <span class="badge bg-secondary info-badge" id="animeTitle"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 选择剧集 -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-collection-play"></i> 步骤 2: 选择目标剧集</h5>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="seriesSelect" class="form-label">选择剧集</label>
+                        <select id="seriesSelect" class="form-select">
+                            <option value="">-- 请选择剧集 --</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="seasonSelect" class="form-label">选择季度</label>
+                        <select id="seasonSelect" class="form-select" disabled>
+                            <option value="">-- 请先选择剧集 --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 剧集信息 -->
+                <div id="seasonInfo" class="mt-3" style="display: none;">
+                    <div class="alert alert-secondary">
+                        <strong><i class="bi bi-info-circle"></i> 季度信息:</strong>
+                        <span id="seasonDetails"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 匹配按钮 -->
+        <div class="card">
+            <div class="card-body text-center">
+                <button id="matchBtn" class="btn btn-primary btn-lg" disabled>
+                    <i class="bi bi-magic"></i> 自动匹配字幕
+                </button>
+                <div id="matchResult" class="result-message" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 全局变量
+        let uploadedFile = null;
+        let seriesData = [];
+        let currentSeasonPath = '';
+
+        // 页面加载时获取剧集列表
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSeries();
+            setupUploadZone();
+            setupEventListeners();
+        });
+
+        // 设置上传区域
+        function setupUploadZone() {
+            const uploadZone = document.getElementById('uploadZone');
+            const fileInput = document.getElementById('fileInput');
+
+            // 点击上传
+            uploadZone.addEventListener('click', () => fileInput.click());
+
+            // 文件选择
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileUpload(e.target.files[0]);
+                }
+            });
+
+            // 拖拽事件
+            uploadZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadZone.classList.add('dragover');
+            });
+
+            uploadZone.addEventListener('dragleave', () => {
+                uploadZone.classList.remove('dragover');
+            });
+
+            uploadZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length > 0) {
+                    handleFileUpload(e.dataTransfer.files[0]);
+                }
+            });
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            document.getElementById('seriesSelect').addEventListener('change', handleSeriesChange);
+            document.getElementById('seasonSelect').addEventListener('change', handleSeasonChange);
+            document.getElementById('matchBtn').addEventListener('click', handleMatch);
+        }
+
+        // 加载剧集列表
+        async function loadSeries() {
+            try {
+                const response = await fetch('/api/series');
+                const result = await response.json();
+
+                if (result.success) {
+                    seriesData = result.data;
+                    const seriesSelect = document.getElementById('seriesSelect');
+                    seriesSelect.innerHTML = '<option value="">-- 请选择剧集 --</option>';
+
+                    result.data.forEach((series, index) => {
+                        const option = document.createElement('option');
+                        option.value = index;
+                        option.textContent = `${series.name} (${series.seasons.length} 季)`;
+                        seriesSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('加载剧集失败:', error);
+                showMessage('无法加载剧集列表', 'danger');
+            }
+        }
+
+        // 处理文件上传
+        async function handleFileUpload(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // 显示加载状态
+            showMessage('<span class="spinner-border spinner-border-sm"></span> 正在上传和识别...', 'info');
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    uploadedFile = result.data;
+                    displayFileInfo(result.data);
+                    checkMatchReady();
+                    hideMessage();
+                } else {
+                    showMessage(result.error, 'danger');
+                }
+            } catch (error) {
+                showMessage('上传失败: ' + error.message, 'danger');
+            }
+        }
+
+        // 显示文件信息
+        function displayFileInfo(data) {
+            document.getElementById('fileName').textContent = data.filename;
+            document.getElementById('episode').textContent = data.episode;
+            document.getElementById('animeTitle').textContent = data.anime_title || '未识别剧名';
+            document.getElementById('fileInfo').style.display = 'block';
+        }
+
+        // 处理剧集选择
+        function handleSeriesChange(e) {
+            const index = e.target.value;
+            const seasonSelect = document.getElementById('seasonSelect');
+
+            if (index === '') {
+                seasonSelect.disabled = true;
+                seasonSelect.innerHTML = '<option value="">-- 请先选择剧集 --</option>';
+                document.getElementById('seasonInfo').style.display = 'none';
+                checkMatchReady();
+                return;
+            }
+
+            const series = seriesData[index];
+            seasonSelect.disabled = false;
+            seasonSelect.innerHTML = '<option value="">-- 请选择季度 --</option>';
+
+            series.seasons.forEach((season, idx) => {
+                const option = document.createElement('option');
+                option.value = idx;
+                option.textContent = `${season.name} (${season.episode_count} 集)`;
+                seasonSelect.appendChild(option);
+            });
+
+            document.getElementById('seasonInfo').style.display = 'none';
+            checkMatchReady();
+        }
+
+        // 处理季度选择
+        function handleSeasonChange(e) {
+            const seriesIndex = document.getElementById('seriesSelect').value;
+            const seasonIndex = e.target.value;
+
+            if (seasonIndex === '' || seriesIndex === '') {
+                document.getElementById('seasonInfo').style.display = 'none';
+                currentSeasonPath = '';
+                checkMatchReady();
+                return;
+            }
+
+            const season = seriesData[seriesIndex].seasons[seasonIndex];
+            currentSeasonPath = season.path;
+
+            document.getElementById('seasonDetails').textContent = 
+                `${season.name} - 共 ${season.episode_count} 集`;
+            document.getElementById('seasonInfo').style.display = 'block';
+
+            checkMatchReady();
+        }
+
+        // 检查是否可以匹配
+        function checkMatchReady() {
+            const matchBtn = document.getElementById('matchBtn');
+            matchBtn.disabled = !(uploadedFile && currentSeasonPath);
+        }
+
+        // 执行匹配
+        async function handleMatch() {
+            if (!uploadedFile || !currentSeasonPath) return;
+
+            const matchBtn = document.getElementById('matchBtn');
+            matchBtn.disabled = true;
+            showMessage('<span class="spinner-border spinner-border-sm"></span> 正在匹配字幕...', 'info');
+
+            try {
+                const response = await fetch('/api/match', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        subtitle_path: uploadedFile.filepath,
+                        season_path: currentSeasonPath,
+                        episode: uploadedFile.episode
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage('<i class="bi bi-check-circle"></i> ' + result.message, 'success');
+                    // 重置状态
+                    setTimeout(() => {
+                        resetForm();
+                    }, 3000);
+                } else {
+                    showMessage('<i class="bi bi-exclamation-triangle"></i> ' + result.message, 'warning');
+                    matchBtn.disabled = false;
+                }
+            } catch (error) {
+                showMessage('匹配失败: ' + error.message, 'danger');
+                matchBtn.disabled = false;
+            }
+        }
+
+        // 显示消息
+        function showMessage(message, type) {
+            const resultDiv = document.getElementById('matchResult');
+            resultDiv.className = `result-message alert alert-${type}`;
+            resultDiv.innerHTML = message;
+            resultDiv.style.display = 'block';
+        }
+
+        // 隐藏消息
+        function hideMessage() {
+            document.getElementById('matchResult').style.display = 'none';
+        }
+
+        // 重置表单
+        function resetForm() {
+            uploadedFile = null;
+            currentSeasonPath = '';
+            document.getElementById('fileInfo').style.display = 'none';
+            document.getElementById('fileInput').value = '';
+            document.getElementById('seriesSelect').value = '';
+            document.getElementById('seasonSelect').value = '';
+            document.getElementById('seasonSelect').disabled = true;
+            document.getElementById('seasonInfo').style.display = 'none';
+            document.getElementById('matchBtn').disabled = true;
+            hideMessage();
+        }
+    </script>
+</body>
+</html>

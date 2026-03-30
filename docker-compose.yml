@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  anime-sub-matcher:
+    build: .
+    container_name: anime-sub-matcher
+    ports:
+      - "5000:5000"
+    volumes:
+      # 重要: 请修改下面的路径为你的实际剧集目录路径
+      - /path/to/your/bangumi:/app/bangumi
+      # 临时上传目录（可选，用于持久化上传的文件）
+      - ./uploads:/app/uploads
+    environment:
+      - FLASK_ENV=production
+    restart: unless-stopped
+    
+    # 可选: 如果需要调试，可以使用开发模式
+    # command: python -m flask run --host=0.0.0.0 --port=5000 --debug
+
+# 使用说明:
+# 1. 修改上面的 /path/to/your/bangumi 为你的实际剧集目录
+# 2. 运行: docker-compose up -d
+# 3. 访问: http://localhost:5000
+# 4. 停止: docker-compose down
